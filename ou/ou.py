@@ -13,11 +13,12 @@ import numpy as np
 import cx_Oracle as co
 from jinja2 import Template
 
-from log import logger
-from config import ORA_CONNECTION
+from base_.log_ import mylog
+from base_.config_ import ORA_CONNECTION
 sys.path.append('/home/xiewj/libraries/')
-from code_ import judge_code
+from base_.code_ import judge_code
 
+logger = mylog()
 
 def get_tb_name(infile):
     ''' get table name.

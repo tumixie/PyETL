@@ -1,31 +1,17 @@
-#! /usr/bin/env/python2.7
+#! python2.7
 # -*- coding:utf-8 -*-
 
 from optparse import OptionParser
 import os
 import sys
-import re
 
 from jinja2 import Template
-from chardet.universaldetector import UniversalDetector
 import cx_Oracle as co
 import sqlparse
-import chardet
 
-from config import ORA_CONNECTION
-from log import mylog
-
-def judge_code(filename):
-    with open(filename, 'r') as f:
-        file_lst = f.readlines()
-        detector = UniversalDetector()
-        for line in file_lst:
-            detector.feed(line)
-            if detector.done:
-                break
-        detector.close()
-    code = detector.result['encoding']
-    return code
+from base_.config_ import ORA_CONNECTION
+from base_.log_ import mylog
+from base_.code_ import judge_code
 
 def check_file(infile, logger):
     ''' check the input file.

@@ -1,27 +1,30 @@
-#! /home/xiewj/.pyenv/shims python2.7
-#-*- coding: utf-8 -*-
-u'''
+#! python2.7
+# -*- coding: utf-8 -*-
+
+"""
 连接 oracle 数据库, 获取数据
-'''
+"""
+
 import os
 import time
 import sys
-import chardet
 import csv
 from optparse import OptionParser
 
 import pandas as pd
 import cx_Oracle as co
-import uniout
 from jinja2 import Template
 
-from config import ORA_CONNECTION
-from code_ import judge_code
+from base_.config_ import ORA_CONNECTION
+from base_.code_ import judge_code
+from base_.log_ import mylog
 
-os.environ['NLS_LANG']='SIMPLIFIED CHINESE_CHINA.UTF8'
+
+os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
+
 
 def get_options():
-    ''' get options '''
+    """ get options """
     usage = "usage: %prog [options] arg1 arg2"
     parser = OptionParser(usage=usage)
     parser.add_option('-t', '--table', action='append', dest='table_name_lst', help='str, table to extract')
@@ -39,7 +42,7 @@ def get_options():
 
 
 def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_transfer=None):
-    '''
+    """
     parameters:
     -----------
     table_name                                 str
@@ -62,7 +65,7 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
     attention:
     ----------
     label 文件需要再手工修改
-    '''
+    """
     os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
     start_time = time.time()
@@ -134,7 +137,6 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
 
 if __name__ == '__main__':
     options = get_options()
-
     table_name_lst = options.table_name_lst
     destination = options.destination
     connection = options.ora_connection
