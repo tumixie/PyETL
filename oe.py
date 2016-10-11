@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-连接 oracle 数据库, 获取数据
+连接 oracle 数据库, 获取表数据
 """
 
 import os
@@ -20,20 +20,17 @@ from base_.code_ import judge_code
 from base_.log_ import mylog
 
 
-os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
-
+logger = mylog('oe.log')
 
 def get_options():
     """ get options """
     usage = "usage: %prog [options] arg1 arg2"
     parser = OptionParser(usage=usage)
-    parser.add_option('-t', '--table', action='append', dest='table_name_lst', help='str, table to extract')
-    parser.add_option('-d', '--dest', action='store', dest='destination', help='str, csv file to store')
-    parser.add_option('-l','--col', action='append', dest='col_exclude_lst', help='str, the columns not to upload')
-    parser.add_option('-v', action='store_true', dest="verbose", default=True
-                     , help='boolean, transfer CLOB/BLOB data to varchar at most 4000 bytes')
-    parser.add_option('-q', action='store_false', dest="verbose", default=False
-                     , help='boolean, not transfer CLOB/BLOB data to varchar at most 4000 bytes')
+    parser.add_option('-t', '--table', action='append', dest='table_name_lst', help='table to extract')
+    parser.add_option('-d', '--dest', action='store', dest='destination', help='path to store, default current path')
+    parser.add_option('-l','--col', action='append', dest='col_exclude_lst', help='the columns not to upload')
+    parser.add_option('-v', action='store_true', dest="verbose", default=False, help='transfer CLOB/BLOB data to varchar2')
+    parser.add_option('-q', action='store_false', dest="verbose", default=True, help='boolean')
     parser.add_option('-c','--connection', action='store', dest='ora_connection'
                      , help='str, connect oracle with formatter "username/password[@domain]/database"')
     options, args = parser.parse_args()
@@ -41,7 +38,7 @@ def get_options():
     return options
 
 
-def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_transfer=None):
+def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_transfer=None):
     """
     parameters:
     -----------
@@ -58,15 +55,14 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
 
     results:
     --------
-    输出 文件 {{ 表名 }} 作为数据(\t, 首行格式为 {{COLUMN_NAME}}|{{DATA_TYPE}})
-            {{ 表名_label.csv }} 作为元数据, 首行格式为 COLUMN_NAME,TABLE_NAME,DATA_TYPE,DATA_LENGTH
-        两个文件的变量 顺序是一致
+    输出 csv文件
 
-    attention:
-    ----------
-    label 文件需要再手工修改
+    usage:
+    shell 或者 cmd下直接python调用
+    `python oe.py -c <username>/<password>@<host>/<dbname> -t <table_name> -v`
+    支持在base_.config_中添加配置oracle服务器连接，简化命令行操作。
+    
     """
-    os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.UTF8'
 
     start_time = time.time()
     conn = co.connect(connection)
@@ -78,24 +74,31 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
                   where TABLE_NAME like '%s' order by column_id
                ''' % str.upper(table_name)
     df_meta = pd.read_sql(sql_meta, conn)
-    if len(df_meta) == 0:
+    
+    if df_meta is None:
+        print u'未提供表名'
+        sys.exit()
+        conn.close()
+    elif len(df_meta) == 0:
         print u'表或试图不存在'
+        sys.exit()
+        conn.close()
 
     column_order_dict = {col: ix for ix, col in enumerate(df_meta['COLUMN_NAME'])}
     def get_order(value):
         return column_order_dict.get(value)
 
-    if exclude_lst:
+    if exclude_lst is not None:
         column_lst = list(set(df_meta['COLUMN_NAME']) - set(exclude_lst))
         column_lst = sorted(column_lst, key=get_order)
     else:
         column_lst = list(df_meta['COLUMN_NAME'])
 
-    transfer_col_lst = [row['COLUMN_NAME'] for ix, row in df_meta.iterrows() if 'LOB' in row['DATA_TYPE']]
     if dtype_transfer:
-        column_lst = ['to_char(%s) as %s'% (col,col) if col in transfer_col_lst else col for col in column_lst]
+        column_lst = [('to_char(%s) as %s' %(col,col)) if 'LOB' in dtype else col
+                     for col, dtype in zip(df_meta['COLUMN_NAME'], df_meta['DATA_TYPE'])]
 
-    code = judge_code(''.join(column_lst))
+    code = judge_code(column_lst)
     print code
     column_lst = [unicode(x, code) for x in column_lst]
 
@@ -111,12 +114,16 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
                from {{table}}""")
     sql_data = sql_data.render(table=table_name, column_lst=column_lst)
 
+    data_target_path = '' if data_target_path is None else data_target_path
     out_file_name = data_target_path + table_name + '.csv'
     if os.path.isfile(out_file_name):
         os.remove(out_file_name)
-    if dtype_transfer or not transfer_col_lst:
-        tb_data_df = pd.read_sql(sql_data, conn)
-        tb_data_df.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False)
+    if dtype_transfer:
+        tb_data_df = pd.read_sql(sql=sql_data, con=conn, chunksize=1000)
+        for chunk in tb_data_df:
+            chunk.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False, mode='a')
+        #tb_data_df = pd.read_sql(sql=sql_data, con=conn)
+        #tb_data_df.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False, mode='a')
     else:
         tb_data_iter = cursor.execute(sql_data)
 
@@ -134,6 +141,7 @@ def oe(table_name, connection, data_target_path='', exclude_lst = None, dtype_tr
                 break
     end_time = time.time()
     print end_time - start_time
+    logger.info('run time: %s' % str(end_time - start_time))
 
 if __name__ == '__main__':
     options = get_options()
@@ -158,6 +166,9 @@ if __name__ == '__main__':
         destination = ''
 
     for t_name in table_name_lst:
+        logger.info(t_name)
+        logger.info('--------------------')
         oe(t_name, connection=connection, data_target_path=destination, exclude_lst=col_exclude_lst
           , dtype_transfer=dtype_transfer)
+        logger.info('--------------------')
 

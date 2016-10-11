@@ -15,7 +15,6 @@ from jinja2 import Template
 
 from base_.log_ import mylog
 from base_.config_ import ORA_CONNECTION
-sys.path.append('/home/xiewj/libraries/')
 from base_.code_ import judge_code
 
 logger = mylog()

@@ -13,6 +13,7 @@ from base_.config_ import ORA_CONNECTION
 from base_.log_ import mylog
 from base_.code_ import judge_code
 
+
 def check_file(infile, logger):
     ''' check the input file.
     Parameter
@@ -24,7 +25,7 @@ def check_file(infile, logger):
         filename, extention = os.path.splitext(infile)
         filename = os.path.basename(filename)
         if extention != '.sql':
-            logger.debug('not a csv file!')
+            logger.debug('not a sql file!')
             return False
         return True
     else:
@@ -65,7 +66,7 @@ def ora_execute(conn, cursor, statement, logger):
 def get_sql(statement, args=None):
 
     statement = statement.strip()
-    if not args:
+    if args is None:
         return statement
     else:
         sql_template = Template(statement)
@@ -77,12 +78,12 @@ def _os_(infile, connection, logger, encoding=None, args_lst=None):
     if not check_file(infile, logger):
         sys.exit()
 
-    if args_lst:
+    if args_lst is not None:
         arg_dict = variable_parse(args_lst)
     else:
         arg_dict = None
 
-    code = encoding if encoding else judge_code(infile)
+    code = encoding if encoding is not None else judge_code(infile)
     logger.info(code)
     with open(infile, 'r') as f:
         sql_lst = f.readlines()
@@ -117,13 +118,13 @@ if __name__ == '__main__':
     args_lst = options.arguments
 
     connection = options.ora_connection
-    if not filename:
+    if filename is None:
         print 'please input a filename!'
         sys.exit()
-    else:
-        logger = mylog(logFileName=filename)
 
-    if not connection:
+    logger = mylog(logFileName=filename)
+
+    if connection is None:
         print 'please input a database connection!'
         sys.exit()
     if ORA_CONNECTION.get(connection):
