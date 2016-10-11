@@ -4,6 +4,10 @@
 ###oe.py
 >oracle数据库中下载表数据,并保存为csv文件
 
+>python 版本：python2.7
+
+>依赖的第三方库jinja2,cx_Oracle,sqlparse,pandas,numpy
+
 在shell 或者 cmd中直接运行：
 `python oe.py -c <username>/<password>[@<host>]/<dbname> -t <table_name>`
 
