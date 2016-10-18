@@ -3,8 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="98955e9a-f9f5-4817-94bd-f5805c01fdff" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/oe.py" afterPath="$PROJECT_DIR$/oe.py" />
-      <change type="MOVED" beforePath="$PROJECT_DIR$/test.py" afterPath="$PROJECT_DIR$/test/test.py" />
     </list>
     <ignored path="PyETL.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -40,11 +38,9 @@
       <file leaf-file-name="oe.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/oe.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="210">
-              <caret line="76" column="24" selection-start-line="76" selection-start-column="24" selection-end-line="76" selection-end-column="24" />
-              <folding>
-                <element signature="e#67#76#0" expanded="true" />
-              </folding>
+            <state relative-caret-position="450">
+              <caret line="84" column="20" selection-start-line="84" selection-start-column="20" selection-end-line="84" selection-end-column="20" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -387,7 +383,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-8" y="-8" width="1382" height="784" extended-state="0" />
+    <frame x="-8" y="-8" width="1382" height="784" extended-state="1" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.14200298" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -490,11 +486,9 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/oe.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="76" column="24" selection-start-line="76" selection-start-column="24" selection-end-line="76" selection-end-column="24" />
-          <folding>
-            <element signature="e#67#76#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="450">
+          <caret line="84" column="20" selection-start-line="84" selection-start-column="20" selection-end-line="84" selection-end-column="20" />
+          <folding />
         </state>
       </provider>
     </entry>

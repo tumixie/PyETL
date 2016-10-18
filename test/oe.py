@@ -21,7 +21,7 @@ from base_.code_ import judge_code
 from base_.log_ import mylog
 
 
-logger = mylog('oe.log', True)
+logger = mylog('oe.log')
 
 options = \
 """
@@ -55,6 +55,7 @@ def multi_process(func_lst):
     for thread in thread_lst:
         thread.join()
 
+
 def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_transfer=None, delimiter='\t', ftype=None):
     """
     parameters:
@@ -87,11 +88,11 @@ def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_
     df_meta = pd.read_sql(sql_meta, conn)
     
     if df_meta is None:
-        print u'未提供表名'
+        print('未提供表名')
         sys.exit()
         conn.close()
     elif len(df_meta) == 0:
-        print u'表或试图不存在'
+        print('表或试图不存在')
         sys.exit()
         conn.close()
 
@@ -110,7 +111,7 @@ def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_
                      for col, dtype in zip(df_meta['COLUMN_NAME'], df_meta['DATA_TYPE'])]
 
     code = judge_code(column_lst)
-    column_lst = [unicode(x, code) for x in column_lst]
+    column_lst = [str(x, code) for x in column_lst]
 
     # 数据
     sql_data = Template("""
@@ -133,6 +134,8 @@ def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_
         tb_data_df = pd.read_sql(sql=sql_data, con=conn, chunksize=1000)
         for chunk in tb_data_df:
             chunk.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False, mode='a')
+        #tb_data_df = pd.read_sql(sql=sql_data, con=conn)
+        #tb_data_df.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False, mode='a')
     else:
         tb_data_iter = cursor.execute(sql_data)
 
@@ -149,7 +152,8 @@ def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_
             else:
                 break
     end_time = time.time()
-    logger.info('[code]: %s' % code)
+    print(end_time - start_time)
+    logger.info('code: %s' % code)
     logger.info('[%s][run time]: %s' % (table_name, str(end_time - start_time)))
 
 

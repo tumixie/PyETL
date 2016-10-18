@@ -1,0 +1,28 @@
+# -*- coding: utf-8 -*-
+
+"""
+    Usage:
+      script.py -c <conn> -t <table>... [--d=<path>] [--l=<ex_col>] [-v]
+      script.py (-h | --help)
+      script.py --version
+
+    Examples:
+      myscript.py -c zhangsan/zs123@quark.com/qf_risk -t test_table
+
+    Options:
+      -h --help      show help message
+      --verison      show version
+      -c             oracle connection with formatter `<username>/<password>[@<host>]/<dbname>`
+      -t             download table
+      --d=<path>     path to save file
+      --l=<ex_col>   table columns not to download
+      -v             the download method. if true,transfer download datatype like `*LOB` to `VARCHAR2`
+      
+"""
+
+from docopt import docopt
+
+
+if __name__ == '__main__':
+    arguments = docopt(__doc__, version='Naval Fate 2.0')
+    print arguments
