@@ -93,7 +93,7 @@ def oe(table_name, conn, exclude_cols = None, sep='\t', ftype=None, fpath=None, 
     -----------
     table_name: `str`, table name for download
     conn: `str`, oracle connection with formatter `<username>/<password>@<host>/<dbname>`
-    exclude_cols: `list`, undownload column list with delimiter `,`
+    exclude_cols: `str`, undownload columns separated by `,`
     fpath: `str`, path to save download file, default current path
     ftype: `str`, download file type, default `csv`
     sep: `str`, csv-like file's separation
