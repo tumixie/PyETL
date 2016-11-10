@@ -2,49 +2,127 @@
 # -*- coding: utf-8 -*-
 
 """
-连接 oracle 数据库, 获取表数据
-"""
-
-import os
-import time
-import sys
-import csv
-import threading
-
-import pandas as pd
-import cx_Oracle as co
-from jinja2 import Template
-from docopt import docopt
-
-from base_.config_ import ORA_CONNECTION
-from base_.code_ import judge_code
-from base_.log_ import mylog
-
-
-logger = mylog('oe.log', True)
-
-options = \
-"""
     Usage:
-      script.py -c <conn> [--d=<path>] [--l=<ex_col>] [-v] [--s=<sep>] [--f=<ftype>] -t <table>... 
+      script.py -c <conn> [--p=<path>] [--l=<ex_col>] [-o] [--d=<sep>] [--f=<ftype>] -t <table>...
       script.py (-h | --help)
       script.py --version
 
     Examples:
-      myscript.py -c zhangsan/zs123@quark.com/qf_risk -t test_table
+      python myscript.py -c zhangsan/zs123@quark.com/qf_risk -t test_table
 
     Options:
       -h --help      show help message
       --verison      show version
-      -c             oracle connection with formatter `<username>/<password>[@<host>]/<dbname>`
-      -t             download table
-      --d=<path>     path to save file
-      --l=<ex_col>   table columns not to download
-      --s=<sep>      separation of download file, default `\t`
+      -c             oracle connection with formatter `oracle://<username>:<password>[@<host>]/<dbname>`
+      -t             download table list
+      -o             got csv-like file with columns like `<column>|<datatype>(<datalength>)`
+      --p=<path>     path to save file
+      --l=<ex_col>   table columns not to download, with formatter `<col1>,<col2>,...`
+      --d=<sep>      separation of download file, default `\t`
       --f=<ftype>    type of download file,only could be one of [`csv`],default `csv`
-      -v             the download method. if true,transfer download datatype like `*LOB` to `VARCHAR2`
       
 """
+
+from __future__ import division
+import os
+import time
+import sys
+import threading
+
+import pandas as pd
+import sqlalchemy
+from jinja2 import Template
+from docopt import docopt
+from collections import namedtuple
+
+from base_.config_ import ORA_CONNECTION
+from base_.code_ import judge_code
+from base_.log_ import log_
+
+
+logger = log_('oe.log', True)
+
+
+def get_file(fdir, file, ftype):
+    fdir = '' if fdir is None else (fdir + ('' if fdir.endswith('/') else '/'))
+    ftype = '' if ftype is None else ('.' + ftype)
+    return fdir + file + ftype
+#
+
+def get_cols(meta_df, ex_cols_str, sep=','):
+    meta_df.index = meta_df['column_name']
+    tb_field_lst = (list(meta_df['column_name']) if ex_cols_str is None else 
+                   [x for x in meta_df['column_name'] if x not in map(str.upper, ex_cols_str.split(sep))])
+    tb_dtype_lst = [(str(meta_df['data_type'][x]) + '(' + str(meta_df['data_length'][x]) + ')') for x in tb_field_lst]
+    return namedtuple('fields', tb_field_lst)._make(tb_dtype_lst)
+#
+
+def get_query_sql(table, tb_fields):
+    column_lst = [('to_char(%s) as %s' %(col,col)) if 'LOB' in col else col for col in tb_fields._fields ]
+    code = judge_code(column_lst)
+    logger.info('[code]: %s' % code)
+    column_lst = [unicode(x, code) for x in column_lst]
+    sql_data_tp = Template("""
+               select {% for col in column_lst -%}
+                        {%- if loop.index0 == 0 -%}
+                          {{col}}
+                        {%- else -%}
+                          ,{{col}}
+                        {%- endif %}
+                      {%- endfor %}
+               from {{table}} where rownum<=10""")
+    sql_data = sql_data_tp.render(table=table, column_lst=column_lst)
+    return sql_data
+#
+
+def to_file(conn, sql, filename, delimiter, columns=None):
+    tb_df = pd.read_sql(sql=sql, con=conn, chunksize=2000)
+    for ii, chunk in enumerate(tb_df):
+        if ii == 0:
+            columns = pd.DataFrame([chunk.columns if columns is None else columns])  
+            columns.to_csv(filename, sep=delimiter, encoding='utf-8', index=False, header=None, mode='a')
+        chunk.to_csv(filename, sep=delimiter, encoding='utf-8', index=False, header=None, mode='a')
+#
+
+
+#
+
+def oe(table_name, conn, exclude_cols = None, sep='\t', ftype=None, fpath=None, ora_col=False):
+    """
+    parameters:
+    -----------
+    table_name: `str`, table name for download
+    conn: `str`, oracle connection with formatter `<username>/<password>@<host>/<dbname>`
+    exclude_cols: `list`, undownload column list with delimiter `,`
+    fpath: `str`, path to save download file, default current path
+    ftype: `str`, download file type, default `csv`
+    sep: `str`, csv-like file's separation
+
+    results:
+    --------
+    csv-like file
+    """
+
+    start_time = time.time()
+    conn = sqlalchemy.create_engine(conn)
+
+    # 获取 元数据 '%s' 而不是 "%s"
+    meta_sql = '''select TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH from USER_TAB_COLS
+                  where TABLE_NAME like '%s' order by column_id
+               ''' % str.upper(table_name)
+    meta_df = pd.read_sql(meta_sql, conn)
+    tb_fields = get_cols(meta_df, exclude_cols)
+    data_sql = get_query_sql(table_name, tb_fields)
+    out_file = get_file(fpath , table_name , ftype)
+    if os.path.isfile(out_file):
+        os.remove(out_file)
+
+    # 数据
+    out_cols = [(x + '|' + getattr(tb_fields, x)) if ora_col else x for x in tb_fields._fields]
+    to_file(conn, data_sql, out_file, sep, out_cols)
+
+    end_time = time.time()
+    logger.info('[%s][run time]: %s' % (table_name, str(end_time - start_time)))
 
 
 def multi_process(func_lst):
@@ -55,115 +133,17 @@ def multi_process(func_lst):
     for thread in thread_lst:
         thread.join()
 
-def oe(table_name, connection, data_target_path=None, exclude_lst = None, dtype_transfer=None, delimiter='\t', ftype=None):
-    """
-    parameters:
-    -----------
-    table_name                                 str
-        oracle 中的表名
-    data_target_path                           str
-        文件输出 目录
-    exclude_lst                                list
-        list of str     需要排除的变量
-    connection                                 str
-        <username>/<password>@<host>/<dbname>
-    dtype_transfer                             boolean
-        if True
-
-    results:
-    --------
-    输出 csv文件
-    """
-
-    start_time = time.time()
-    conn = co.connect(connection)
-    cursor = conn.cursor()
-
-    # 获取 元数据
-    # '%s' 而不是 "%s"
-    sql_meta = '''select TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATA_LENGTH from USER_TAB_COLS
-                  where TABLE_NAME like '%s' order by column_id
-               ''' % str.upper(table_name)
-    df_meta = pd.read_sql(sql_meta, conn)
-    
-    if df_meta is None:
-        print u'未提供表名'
-        sys.exit()
-        conn.close()
-    elif len(df_meta) == 0:
-        print u'表或试图不存在'
-        sys.exit()
-        conn.close()
-
-    column_order_dict = {col: ix for ix, col in enumerate(df_meta['COLUMN_NAME'])}
-    def get_order(value):
-        return column_order_dict.get(value)
-
-    if exclude_lst is not None:
-        column_lst = list(set(df_meta['COLUMN_NAME']) - set(exclude_lst))
-        column_lst = sorted(column_lst, key=get_order)
-    else:
-        column_lst = list(df_meta['COLUMN_NAME'])
-
-    if dtype_transfer:
-        column_lst = [('to_char(%s) as %s' %(col,col)) if 'LOB' in dtype else col
-                     for col, dtype in zip(df_meta['COLUMN_NAME'], df_meta['DATA_TYPE'])]
-
-    code = judge_code(column_lst)
-    column_lst = [unicode(x, code) for x in column_lst]
-
-    # 数据
-    sql_data = Template("""
-               select {% for col in column_lst -%}
-                         {%- if loop.index0 == 0 -%}
-                            {{col}}
-                         {%- else -%}
-                            ,{{col}}
-                         {%- endif %}
-                      {%- endfor %}
-               from {{table}}""")
-    sql_data = sql_data.render(table=table_name, column_lst=column_lst)
-
-    data_target_path = '' if data_target_path is None else data_target_path
-    ftype = '' if ftype == '' else ('.' + ftype)
-    out_file_name = data_target_path + table_name + ftype
-    if os.path.isfile(out_file_name):
-        os.remove(out_file_name)
-    if dtype_transfer:
-        tb_data_df = pd.read_sql(sql=sql_data, con=conn, chunksize=1000)
-        for chunk in tb_data_df:
-            chunk.to_csv(out_file_name, sep='\t', encoding='utf-8', index=False, mode='a')
-    else:
-        tb_data_iter = cursor.execute(sql_data)
-
-        with open(out_file_name, 'a') as f:
-            csv_file = csv.writer(f, delimiter='\t')
-            csv_file.writerow([x.encode('utf-8') for x in column_lst])
-
-        while True:
-            records = tb_data_iter.fetchmany(numRows=50)
-            if records:
-                records_df = pd.DataFrame(records)
-                records_df.to_csv(out_file_name, encoding='utf-8', mode='a'
-                                 , header=False, index=False, sep='\t')
-            else:
-                break
-    end_time = time.time()
-    logger.info('[code]: %s' % code)
-    logger.info('[%s][run time]: %s' % (table_name, str(end_time - start_time)))
-
 
 if __name__ == '__main__':
-    arguments = docopt(options)
+    arguments = docopt(__doc__)
     conn = ORA_CONNECTION.get(arguments['<conn>']) if ORA_CONNECTION.get(arguments['<conn>']) else arguments['<conn>']
     table_lst = arguments['<table>']
-    data_target_path = arguments['--d']
-    exclude_cols_lst = arguments['--l']
-    dtype_transfer = arguments['-v']
-    delimiter = '\t' if arguments['--s'] is None else arguments['--s']
-    ftype = '' if arguments['--f'] is None else arguments['--f']
-    
-    multi_oe_lst = [(oe, (tb, conn, data_target_path, exclude_cols_lst, dtype_transfer, delimiter, ftype)) for tb in table_lst]
+    fpath = arguments['--p']
+    exclude_cols = arguments['--l']
+    delimiter = '\t' if arguments['--d'] is None else arguments['--d']
+    ftype = arguments['--f']
+    ora_col = arguments['-o']
+    multi_oe_lst = [(oe, (tb, conn, exclude_cols, delimiter, ftype, fpath, ora_col)) for tb in table_lst]
 
     multi_process(multi_oe_lst)
 
