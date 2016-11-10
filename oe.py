@@ -87,7 +87,7 @@ def to_file(conn, sql, filename, delimiter, columns=None):
 
 #
 
-def oe(table_name, conn, exclude_cols = None, sep='\t', ftype=None, fpath=None, ora_col=False):
+def oe_(table_name, conn, exclude_cols = None, sep='\t', ftype=None, fpath=None, ora_col=False):
     """
     parameters:
     -----------
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     delimiter = '\t' if arguments['--d'] is None else arguments['--d']
     ftype = arguments['--f']
     ora_col = arguments['-o']
-    multi_oe_lst = [(oe, (tb, conn, exclude_cols, delimiter, ftype, fpath, ora_col)) for tb in table_lst]
+    multi_oe_lst = [(oe_, (tb, conn, exclude_cols, delimiter, ftype, fpath, ora_col)) for tb in table_lst]
 
     multi_process(multi_oe_lst)
 
