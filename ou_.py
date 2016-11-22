@@ -53,6 +53,7 @@ def get_name(infile):
 def get_cols(df, ex_cols):
     if ex_cols is None:
         return df
+    df.columns = df.columns.map(lower)
     for col in ex_cols.split(','):
         if col.upper() in df.columns:
             df.drop(col.upper(), axis=1, inplace=True)
@@ -72,7 +73,8 @@ def get_dtype(df, dtype=None):
             logger.warning(u'未指定列数据类型')
             dtype = {col: DTYPE_MAPPING['VARCHAR2'] for col in df.columns}
         else:
-            dtype = {col: DTYPE_MAPPING[re.search('\|([a-zA-Z0-9]+)\(').groups()[0]] for col in df.columns}
+            dtype = {col.split('|')[0]: DTYPE_MAPPING[re.search('\|([a-zA-Z0-9]+)\(', col).groups()[0].upper()]
+                     for col in df.columns}
     return dtype
 
 
@@ -96,6 +98,7 @@ def ou_(infile, conn, encoding=None, sep='\t', appending=False, ex_cols=None):
         df.fillna('', inplace=True)
         df = get_cols(df, ex_cols)
         dtype = get_dtype(df) if ii == 0 else dtype
+        df.columns = df.columns.map(lambda x: x.split('|')[0])
         to_oracle(tb_name, df, conn, dtype, if_exists)
 
 
@@ -110,3 +113,12 @@ if __name__ == '__main__':
     ex_cols = arguments['--l']
     ou_(infile, conn, encoding, sep, appending, ex_cols)
     
+
+
+
+
+
+
+
+
+
